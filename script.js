@@ -16,6 +16,8 @@
   const nowMs = () => Date.now();
 
   const STORAGE_KEY = "medsim_save_v1";
+  const TUTORIAL_KEY = "medsim_tutorial_seen_v2";
+  const CASE_COOLDOWN_MS = 2500;
 
   // ---------------------------
   // Data (avatars)
@@ -116,7 +118,7 @@
       if (nextCaseButton) {
         nextCaseButton.addEventListener("click", () => {
           this.showScreen("game");
-          window.engine.start();
+          this.maybeShowTutorial(() => window.engine.start());
         });
       }
 
@@ -138,6 +140,17 @@
       $("exam-back")?.addEventListener("click", () => this.hideOverlay(this.examPage));
       $("treatment-back")?.addEventListener("click", () => this.hideOverlay(this.treatPage));
       $("diagnosis-back")?.addEventListener("click", () => this.hideOverlay(this.dxPage));
+
+      // tutorial
+      $("tutorial-close")?.addEventListener("click", () => {
+        this.hideOverlay(this.tutorialPage);
+        try { localStorage.setItem(TUTORIAL_KEY, "1"); } catch (_) {}
+        if (this._onTutorialDone) {
+          const fn = this._onTutorialDone;
+          this._onTutorialDone = null;
+          fn();
+        }
+      });
     }
 
     _renderAvatars() {
@@ -176,7 +189,19 @@
       if (target) target.classList.add("active");
     }
 
-    showOverlay(el) {
+    
+
+    maybeShowTutorial(onDone){
+      let seen = false;
+      try { seen = localStorage.getItem(TUTORIAL_KEY) === "1"; } catch (_) {}
+      if (seen || !this.tutorialPage){
+        onDone && onDone();
+        return;
+      }
+      this._onTutorialDone = onDone;
+      this.showOverlay(this.tutorialPage);
+    }
+showOverlay(el) {
       if (!el) return;
       el.classList.remove("hidden");
     }
@@ -290,6 +315,7 @@
           <div class="actions-row">
             <button class="action-btn" id="btn-finish"><i>✅</i><span>Finalizar caso</span></button>
             <button class="action-btn" id="btn-notes"><i>🗒️</i><span>Resumo do caso</span></button>
+            <button class="action-btn" id="btn-hint"><i>💡</i><span>Dica</span></button>
             <button class="action-btn" id="btn-help"><i>❓</i><span>Ajuda</span></button>
           </div>
         </div>
@@ -310,6 +336,11 @@
         ].join("\n");
         this.showInfo("Resumo", notes);
       });
+      this.patientDetails.querySelector("#btn-hint")?.addEventListener("click", () => {
+        const msg = engine.buildHint(p);
+        this.showInfo("Dicas", msg);
+      });
+
       this.patientDetails.querySelector("#btn-help")?.addEventListener("click", () => {
         this.showInfo("Ajuda rápida",
           "Fluxo recomendado:\n" +
@@ -455,6 +486,8 @@
       this._tickTimer = null;
       this.newPatientInterval = null;
 
+      this._cooldownUntil = 0;
+
       this._init();
     }
 
@@ -515,24 +548,36 @@
     }
 
     async loadCatalog() {
-      const res = await fetch("./data/catalog.json", { cache: "no-store" });
-      this.catalog = await res.json();
+      try {
+        const res = await fetch("./data/catalog.json", { cache: "no-store" });
+        if (!res.ok) throw new Error("HTTP " + res.status);
+        this.catalog = await res.json();
+      } catch (e) {
+        console.error("Falha ao carregar catalog.json", e);
+        this.catalog = { exams: [], meds: [], diagnoses: [] };
+      }
     }
 
     async loadCases() {
-      const res = await fetch("./data/cases.json", { cache: "no-store" });
-      const data = await res.json();
-      this.cases = Array.isArray(data) ? data : (data.cases || []);
+      try {
+        const res = await fetch("./data/cases.json", { cache: "no-store" });
+        if (!res.ok) throw new Error("HTTP " + res.status);
+        const data = await res.json();
+        this.cases = Array.isArray(data) ? data : (data.cases || []);
+      } catch (e) {
+        console.error("Falha ao carregar cases.json", e);
+        this.cases = [];
+      }
     }
 
     start() {
       this.stop();
       this.state.paused = false;
+      this._cooldownUntil = 0;
 
       // spawn initial patient
       this.spawnPatient();
-
-      // tick loop
+// tick loop
       this._tickTimer = setInterval(() => this.tick(), this.config.tickMs);
 
       // UI update
@@ -594,7 +639,8 @@
           // remove patient after a short delay
           setTimeout(() => {
             this._removePatient(p.id);
-            this.spawnPatient();
+            this._cooldownUntil = Date.now() + CASE_COOLDOWN_MS;
+            setTimeout(() => this.spawnPatient(), CASE_COOLDOWN_MS + 50);
           }, 1800);
         }
       }
@@ -617,8 +663,11 @@
     }
 
     spawnPatient() {
-      // if patched by custom.js, it may block when patients already exist
-      const template = this._pickCase();
+      // Limite: 1 paciente por vez + cooldown entre casos
+      if (this.patients && this.patients.length > 0) return;
+      const now = Date.now();
+      if (now < (this._cooldownUntil || 0)) return;
+const template = this._pickCase();
       const p = this._createPatientFromCase(template);
       this.patients.push(p);
       this.activePatientId = p.id;
@@ -802,9 +851,45 @@
       // close and rotate patient after cooldown
       setTimeout(() => {
         this._removePatient(p.id);
-        // custom.js adds its own cooldown; keep basic behavior here too
-        if (!this.patients || this.patients.length === 0) this.spawnPatient();
-      }, 2200);
+        this._cooldownUntil = Date.now() + CASE_COOLDOWN_MS;
+        setTimeout(() => this.spawnPatient(), CASE_COOLDOWN_MS + 50);}, 2200);
+    }
+
+    buildHint(p) {
+      if (!p) return "Sem paciente ativo.";
+      const missingEx = (p.requiredExams || []).filter(x => !p.orderedExams.includes(x));
+      const missingMeds = (p.requiredMeds || []).filter(x => !p.givenMeds.includes(x));
+      const avoidEx = (p.harmfulExams || []).slice(0, 3);
+      const avoidMeds = (p.harmfulMeds || []).slice(0, 3);
+
+      const parts = [];
+
+      if (missingEx.length) {
+        parts.push("Exames sugeridos:
+- " + missingEx.slice(0, 5).join("
+- "));
+      } else {
+        parts.push("Exames: você já solicitou os principais (ou este caso não exige exames específicos).");
+      }
+
+      if (missingMeds.length) {
+        parts.push("Condutas/medicações sugeridas:
+- " + missingMeds.slice(0, 5).join("
+- "));
+      } else {
+        parts.push("Condutas: você já aplicou as principais (ou este caso não exige conduta específica).");
+      }
+
+      parts.push("Hipótese provável: " + (p.diagnosis || "—"));
+
+      if (avoidEx.length) parts.push("Evite (pode piorar a pontuação):
+Exames: " + avoidEx.join(", "));
+      if (avoidMeds.length) parts.push("Evite (pode piorar a pontuação):
+Meds/condutas: " + avoidMeds.join(", "));
+
+      return parts.join("
+
+");
     }
 
     _rankForLevel(lv) {
@@ -819,5 +904,15 @@
 
   // Expose
   window.GameUI = GameUI;
-  window.engine = new Engine();
+  document.addEventListener("DOMContentLoaded", () => {
+    try {
+      window.engine = new Engine();
+    } catch (e) {
+      console.error("Falha ao iniciar engine", e);
+      const cover = document.getElementById("cover-screen");
+      const logo = document.getElementById("logo-screen");
+      if (logo) logo.classList.remove("active");
+      if (cover) cover.classList.add("active");
+    }
+  });
 })();
