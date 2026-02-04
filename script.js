@@ -865,31 +865,36 @@ const template = this._pickCase();
       const parts = [];
 
       if (missingEx.length) {
-        parts.push("Exames sugeridos:
-- " + missingEx.slice(0, 5).join("
-- "));
+        parts.push(
+          "Exames sugeridos:\n- " +
+            missingEx.slice(0, 5).join("\n- ")
+        );
       } else {
         parts.push("Exames: você já solicitou os principais (ou este caso não exige exames específicos).");
       }
 
       if (missingMeds.length) {
-        parts.push("Condutas/medicações sugeridas:
-- " + missingMeds.slice(0, 5).join("
-- "));
+        parts.push(
+          "Condutas/medicações sugeridas:\n- " +
+            missingMeds.slice(0, 5).join("\n- ")
+        );
       } else {
         parts.push("Condutas: você já aplicou as principais (ou este caso não exige conduta específica).");
       }
 
       parts.push("Hipótese provável: " + (p.diagnosis || "—"));
 
-      if (avoidEx.length) parts.push("Evite (pode piorar a pontuação):
-Exames: " + avoidEx.join(", "));
-      if (avoidMeds.length) parts.push("Evite (pode piorar a pontuação):
-Meds/condutas: " + avoidMeds.join(", "));
+      if (avoidEx.length)
+        parts.push(
+          "Evite (pode piorar a pontuação):\nExames: " + avoidEx.join(", ")
+        );
+      if (avoidMeds.length)
+        parts.push(
+          "Evite (pode piorar a pontuação):\nMeds/condutas: " +
+            avoidMeds.join(", ")
+        );
 
-      return parts.join("
-
-");
+      return parts.join("\n\n");
     }
 
     _rankForLevel(lv) {
