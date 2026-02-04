@@ -500,6 +500,11 @@ showOverlay(el) {
       this.ui.showScreen("logo");
       // cover will be shown by custom.js (logo fade), but we ensure fallback
       setTimeout(() => {
+  const BUILD = "0001";
+  const BUILD_DATE = "2026-02-04";
+  const STAGE = "1";
+  console.log(`[Medical Simulator] Build $0001 • 2026-02-04 • Stage 1`);
+
         if (this.ui.screens.logo?.classList.contains("active")) {
           this.ui.showScreen("cover");
         }
@@ -914,6 +919,8 @@ const template = this._pickCase();
       window.engine = new Engine();
     } catch (e) {
       console.error("Falha ao iniciar engine", e);
+      const badge = document.querySelector(".build-badge");
+      if (badge) badge.textContent = `Build ${BUILD} • ${BUILD_DATE} • Stage ${STAGE} • BOOT ERROR`;
       const cover = document.getElementById("cover-screen");
       const logo = document.getElementById("logo-screen");
       if (logo) logo.classList.remove("active");

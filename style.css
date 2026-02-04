@@ -591,3 +591,20 @@ html, body {
   85% { opacity: 1; }
   100% { opacity: 0; }
 }
+
+/* Build badge */
+.build-badge{
+  position:fixed;
+  right:14px;
+  bottom:14px;
+  z-index:9999;
+  font-size:12px;
+  letter-spacing:.2px;
+  opacity:.75;
+  padding:8px 10px;
+  border-radius:999px;
+  background: rgba(0,0,0,.35);
+  border: 1px solid rgba(255,255,255,.18);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
