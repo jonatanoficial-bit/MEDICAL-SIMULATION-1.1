@@ -170,7 +170,49 @@
   <!-- O overlay de relatório de caso será criado dinamicamente no script. -->
 
   <!-- Carrega o script principal a partir do repositório original e, em seguida, o script de personalização local. -->
+  
+
+  <script>
+    // Boot fallback: evita tela preta caso o script principal falhe ou demore.
+    (function () {
+      function hasAnyActiveScreen() {
+        try {
+          var nodes = document.querySelectorAll(".screen");
+          for (var i = 0; i < nodes.length; i++) {
+            if (nodes[i].classList.contains("active")) return true;
+          }
+        } catch (_) {}
+        return false;
+      }
+
+      function forceCoverIfStuck() {
+        var logo = document.getElementById("logo-screen");
+        var cover = document.getElementById("cover-screen");
+        if (!cover) return;
+
+        var logoActive = !!(logo && logo.classList.contains("active"));
+        var anyActive = hasAnyActiveScreen();
+
+        // Se já existe alguma outra tela ativa (ex.: welcome/lobby), não sobrescreve.
+        if (anyActive && !logoActive) return;
+
+        // Se ainda estamos na tela de logo (ou nenhuma tela ativa), força capa.
+        if (logoActive || !anyActive) {
+          if (logo) logo.classList.remove("active");
+          cover.classList.add("active");
+        }
+      }
+
+      // Depois do fade do logo (2.8s) + margem, garante capa.
+      setTimeout(forceCoverIfStuck, 3200);
+
+      // Se ocorrer erro de script, garante ao menos a capa.
+      window.addEventListener("error", function(){ setTimeout(forceCoverIfStuck, 10); });
+    })();
+  </script>
+
+
   <script src="./script.js" defer></script>
-  <div class="build-badge">Build 0001 • 2026-02-04 • Stage 1</div>
+  <div class="build-badge">Build 0003 • 2026-02-13 16:52 UTC • Stage 1</div>
 </body>
 </html>

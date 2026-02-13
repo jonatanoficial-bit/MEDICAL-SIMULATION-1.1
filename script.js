@@ -6,6 +6,13 @@
 (function () {
   "use strict";
 
+  // Build metadata (visível no jogo)
+  const BUILD_ID = "0003";
+  const BUILD_TS = "2026-02-13 16:52 UTC";
+  const STAGE = "1";
+  const BUILD_LABEL = `Build ${BUILD_ID} • ${BUILD_TS} • Stage ${STAGE}`;
+
+
   // ---------------------------
   // Helpers
   // ---------------------------
@@ -500,11 +507,11 @@ showOverlay(el) {
       this.ui.showScreen("logo");
       // cover will be shown by custom.js (logo fade), but we ensure fallback
       setTimeout(() => {
-  const BUILD = "0001";
-  const BUILD_DATE = "2026-02-04";
-  const STAGE = "1";
-  console.log(`[Medical Simulator] Build $0001 • 2026-02-04 • Stage 1`);
+        // Atualiza badge (mesmo se o HTML já tiver texto)
+        const badge = document.querySelector(".build-badge");
+        if (badge) badge.textContent = BUILD_LABEL;
 
+        // Se ainda estiver na tela de logo após o fade, força a capa.
         if (this.ui.screens.logo?.classList.contains("active")) {
           this.ui.showScreen("cover");
         }
@@ -915,12 +922,19 @@ const template = this._pickCase();
   // Expose
   window.GameUI = GameUI;
   document.addEventListener("DOMContentLoaded", () => {
+    // Boot log + badge
+    try {
+      const badge = document.querySelector(".build-badge");
+      if (badge) badge.textContent = BUILD_LABEL;
+    } catch (_) {}
+    console.log(`[Medical Simulator] ${BUILD_LABEL}`);
+
     try {
       window.engine = new Engine();
     } catch (e) {
       console.error("Falha ao iniciar engine", e);
       const badge = document.querySelector(".build-badge");
-      if (badge) badge.textContent = `Build ${BUILD} • ${BUILD_DATE} • Stage ${STAGE} • BOOT ERROR`;
+      if (badge) badge.textContent = `${BUILD_LABEL} • BOOT ERROR`;
       const cover = document.getElementById("cover-screen");
       const logo = document.getElementById("logo-screen");
       if (logo) logo.classList.remove("active");

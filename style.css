@@ -63,10 +63,10 @@ body{
 
 /* Logo screen */
 #logo-screen{
-  display:flex;
   align-items:center;
   justify-content:center;
 }
+#logo-screen.active{display:flex}
 .logo-container{
   width:min(460px, 92vw);
   padding: 34px 26px;
