@@ -608,3 +608,60 @@ html, body {
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
 }
+
+
+/* Menu screen */
+.menu-content{
+  min-height: calc(100vh - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  padding: 22px 16px;
+}
+.menu-panel{
+  width: min(720px, 96vw);
+  padding: 22px 18px;
+  background: var(--card);
+  border: 1px solid var(--stroke);
+  box-shadow: var(--shadow);
+  border-radius: var(--radius2);
+  backdrop-filter: blur(10px);
+}
+.menu-panel h2{ margin: 0 0 10px 0; }
+.menu-profile{
+  margin-top: 6px;
+  line-height: 1.35;
+}
+.menu-actions{
+  display:flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 16px;
+}
+.menu-actions .primary-btn{
+  flex: 1 1 220px;
+}
+.menu-actions .ghost-btn{
+  flex: 1 1 160px;
+}
+
+
+/* XP bar */
+.xpbar{
+  width: 220px;
+  max-width: 45vw;
+  height: 8px;
+  border-radius: 999px;
+  background: rgba(255,255,255,.10);
+  border: 1px solid rgba(255,255,255,.14);
+  overflow:hidden;
+  margin-top: 6px;
+}
+.xpfill{
+  height: 100%;
+  width: 0%;
+  background: linear-gradient(90deg, rgba(59,130,246,.9), rgba(16,185,129,.9));
+}
+@media (max-width: 720px){
+  .xpbar{ width: 180px; }
+}

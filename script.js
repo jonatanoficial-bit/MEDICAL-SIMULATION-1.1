@@ -7,9 +7,9 @@
   "use strict";
 
   // Build metadata (visível no jogo)
-  const BUILD_ID = "0003";
-  const BUILD_TS = "2026-02-13 16:52 UTC";
-  const STAGE = "1";
+  const BUILD_ID = "0004";
+  const BUILD_TS = "2026-02-13 18:20 UTC";
+  const STAGE = "2";
   const BUILD_LABEL = `Build ${BUILD_ID} • ${BUILD_TS} • Stage ${STAGE}`;
 
 
@@ -18,6 +18,8 @@
   // ---------------------------
   const $ = (id) => document.getElementById(id);
   const clamp = (n, a, b) => Math.max(a, Math.min(b, n));
+  const round = (n) => Math.round(n);
+  const max0 = (n) => Math.max(0, n);
   const rand = (a, b) => Math.floor(Math.random() * (b - a + 1)) + a;
   const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
   const nowMs = () => Date.now();
@@ -44,6 +46,7 @@
         cover: $("cover-screen"),
         welcome: $("welcome-screen"),
         lobby: $("lobby-screen"),
+        menu: $("menu-screen"),
         office: $("office-screen"),
         game: $("game-screen"),
       };
@@ -84,30 +87,41 @@
       this._renderAvatars();
     }
 
-    _bindNav() {
+       _bindNav() {
       const startButton = $("start-button");
       const nextCaseButton = $("next-case-button");
       const backOffice = $("back-office");
       const pauseBtn = $("pause-btn");
 
+      const cover = this.screens.cover;
+      const welcome = this.screens.welcome;
+
+      // cover -> welcome (toque em qualquer lugar)
+      if (cover) cover.addEventListener("click", () => this.showScreen("welcome"));
+
+      // welcome -> menu (toque em qualquer lugar)
+      if (welcome) welcome.addEventListener("click", () => this.showScreen("menu"));
+
+      // menu buttons
+      $("btn-continue")?.addEventListener("click", () => {
+        if (window.engine?.hasProfile()) {
+          this.showScreen("office");
+          this.refreshOffice(window.engine.state);
+        } else {
+          this.showScreen("lobby");
+        }
+      });
+      $("btn-new")?.addEventListener("click", () => {
+        window.engine?.newCareer();
+        this.showScreen("lobby");
+      });
+      $("btn-tutorial")?.addEventListener("click", () => {
+        this.maybeShowTutorial(() => {});
+      });
+
+      // lobby -> office (cria/atualiza perfil)
       if (startButton) {
         startButton.addEventListener("click", () => {
-          this.showScreen("welcome");
-        });
-      }
-
-      // cover -> welcome
-      const coverPrimary = this.screens.cover?.querySelector(".primary-btn");
-      if (coverPrimary) coverPrimary.addEventListener("click", () => this.showScreen("welcome"));
-
-      // welcome -> lobby
-      const welcomePrimary = this.screens.welcome?.querySelector(".primary-btn");
-      if (welcomePrimary) welcomePrimary.addEventListener("click", () => this.showScreen("lobby"));
-
-      // lobby -> office (cria perfil)
-      const lobbyPrimary = this.screens.lobby?.querySelector(".primary-btn");
-      if (lobbyPrimary) {
-        lobbyPrimary.addEventListener("click", () => {
           const name = (this.playerNameInput?.value || "").trim();
           if (!name) {
             alert("Digite seu nome para continuar.");
@@ -118,6 +132,7 @@
           window.engine.setProfile({ name, mode, specialty });
           this.showScreen("office");
           this.refreshOffice(window.engine.state);
+          this.refreshMenu(window.engine.state);
         });
       }
 
@@ -132,7 +147,8 @@
       if (backOffice) {
         backOffice.addEventListener("click", () => {
           window.engine.resetRunOnly();
-          this.showScreen("lobby");
+          this.showScreen("menu");
+          this.refreshMenu(window.engine.state);
         });
       }
 
@@ -221,6 +237,15 @@ showOverlay(el) {
       const p = state.profile;
       if (this.officeName) this.officeName.textContent = p.name || "—";
       if (this.officeLevel) this.officeLevel.textContent = `Nível ${state.level} • ${state.rank}`;
+
+      const xpEl = document.getElementById("office-xp");
+      const xpFill = document.getElementById("office-xpfill");
+      if (xpEl) xpEl.textContent = `XP ${state.xp || 0}/${state.xpNext || 100}`;
+      if (xpFill) {
+        const pct = Math.max(0, Math.min(100, ((state.xp || 0) / (state.xpNext || 100)) * 100));
+        xpFill.style.width = pct.toFixed(1) + "%";
+      }
+
       if (this.officeScore) this.officeScore.textContent = String(state.score);
 
       // avatar
@@ -235,12 +260,35 @@ showOverlay(el) {
       if (this.statCorrect) this.statCorrect.textContent = String(state.stats.correct);
       if (this.statIncorrect) this.statIncorrect.textContent = String(state.stats.incorrect);
       if (this.statDeaths) this.statDeaths.textContent = String(state.stats.deaths);
+
+      this.refreshMenu(state);
+    }
+
+
+    refreshMenu(state){
+      const el = $("menu-profile");
+      if (!el) return;
+      const p = state?.profile || {};
+      const has = !!(p.name && String(p.name).trim());
+      const lvl = state?.level || 1;
+      const rank = state?.rank || "—";
+      const xp = state?.xp || 0;
+      const xpNext = state?.xpNext || 100;
+      el.textContent = has
+        ? `Perfil: ${p.name} • ${p.specialty || "Clínica Geral"}
+Nível ${lvl} • ${rank} • XP ${xp}/${xpNext}`
+        : "Sem carreira salva. Crie um perfil para começar.";
+      const btnC = $("btn-continue");
+      if (btnC) btnC.textContent = has ? "Continuar carreira" : "Começar";
     }
 
     refreshTopBar(state) {
       if (this.levelDisplay) this.levelDisplay.textContent = `Nível ${state.level}`;
       if (this.scoreDisplay) this.scoreDisplay.textContent = `Pontuação: ${state.score}`;
+      const xpDisp = document.getElementById("xp-display");
+      if (xpDisp) xpDisp.textContent = `XP: ${state.xp || 0}/${state.xpNext || 100}`;
     }
+
 
     refreshPatients(patients, activeId) {
       if (!this.patientsList) return;
@@ -519,6 +567,8 @@ showOverlay(el) {
 
       this.ui.refreshOffice(this.state);
       this.ui.refreshTopBar(this.state);
+      this.ui.refreshMenu(this.state);
+      this.ui.refreshMenu(this.state);
     }
 
     _loadOrCreateState() {
@@ -531,6 +581,8 @@ showOverlay(el) {
         profile: { name: "", avatarId: 1, mode: "training", specialty: "Clínica Geral" },
         level: 1,
         rank: "Interno",
+        xp: 0,
+        xpNext: 100,
         score: 0,
         stats: { total: 0, correct: 0, incorrect: 0, deaths: 0 },
         paused: false,
@@ -556,10 +608,70 @@ showOverlay(el) {
       this.state.profile.name = name;
       this.state.profile.mode = mode;
       this.state.profile.specialty = specialty;
+      // garante xpNext
+      if (!this.state.xpNext) this.state.xpNext = this._xpForNext(this.state.level || 1);
       this.save();
     }
 
+    hasProfile() {
+      const n = (this.state.profile?.name || "").trim();
+      return !!n;
+    }
+
+    newCareer() {
+      // reseta carreira (mantém avatar atual por conveniência)
+      const avatarId = this.state.profile?.avatarId || 1;
+      this.state = {
+        profile: { name: "", avatarId, mode: "training", specialty: "Clínica Geral" },
+        level: 1,
+        rank: "Interno",
+        xp: 0,
+        xpNext: 100,
+        score: 0,
+        stats: { total: 0, correct: 0, incorrect: 0, deaths: 0 },
+        paused: false,
+      };
+      this.save();
+      this.resetRunOnly();
+      this.ui._renderAvatars();
+      this.ui.refreshOffice(this.state);
+      this.ui.refreshTopBar(this.state);
+      this.ui.refreshMenu(this.state);
+    }
+
+    _xpForNext(level) {
+      return 100 + (level - 1) * 60;
+    }
+
+    addXP(amount) {
+      const gain = Math.max(0, Math.round(amount || 0));
+      this.state.xp = Math.max(0, (this.state.xp || 0) + gain);
+      if (!this.state.xpNext) this.state.xpNext = this._xpForNext(this.state.level || 1);
+
+      let safety = 0;
+      while ((this.state.xp || 0) >= (this.state.xpNext || 0) && safety < 20) {
+        this.state.xp -= (this.state.xpNext || 0);
+        this.state.level += 1;
+        this.state.rank = this._rankForLevel(this.state.level);
+        this.state.xpNext = this._xpForNext(this.state.level);
+        this.ui.showInfo("Subiu de nível!", `Parabéns! Você agora é Nível ${this.state.level} • ${this.state.rank}.`);
+        safety++;
+      }
+      this.save();
+    }
+
+    _caseMinLevel(c) {
+      if (!c) return 1;
+      if (typeof c.minLevel === "number") return c.minLevel;
+      const sev = String(c.severity || "mid").toLowerCase();
+      if (sev === "low") return 1;
+      if (sev === "mid") return 2;
+      if (sev === "high") return 4;
+      return 2;
+    }
+
     async loadCatalog() {
+
       try {
         const res = await fetch("./data/catalog.json", { cache: "no-store" });
         if (!res.ok) throw new Error("HTTP " + res.status);
@@ -705,7 +817,8 @@ const template = this._pickCase();
           severity: "mid",
         };
       }
-      return pick(this.cases);
+            const eligible = this.cases.filter((c) => (this.state.level||1) >= this._caseMinLevel(c));
+      return pick(eligible.length ? eligible : this.cases);
     }
 
     _createPatientFromCase(c) {
@@ -837,13 +950,13 @@ const template = this._pickCase();
 
       if (correct && !death) this.state.stats.correct += 1;
       else this.state.stats.incorrect += 1;
-
-      // level up simple
-      const needed = 60 + (this.state.level - 1) * 35;
-      if (this.state.score >= needed) {
-        this.state.level += 1;
-        this.state.rank = this._rankForLevel(this.state.level);
-      }
+      // XP de progressão (independente da pontuação)
+      let xpGain = 0;
+      if (death) xpGain = 8;
+      else if (correct) xpGain = 40;
+      else xpGain = 18;
+      xpGain += Math.max(0, Math.round((p.stability - 50) / 10));
+      this.addXP(xpGain);
 
       const summary = [
         `Diagnóstico real: ${p.diagnosis}`,
